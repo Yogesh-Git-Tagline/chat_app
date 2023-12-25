@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    {% load bootstrap5 %}
+    {% bootstrap_css %}
+    {% bootstrap_javascript %}
+</head>
+
+<body class='alert-danger'>
+    <div class="container">
+        <h2 class='alert alert-info text-center mt-1'>CHAT APPLIACTION</h2>
+        <div class="col-sm-10">
+            <div class="rounded p-4 offset-2 alert-success border border-2 border-dark">
+                <textarea id="chat-box" cols="80" rows="15" class='form-control'></textarea> <br>
+                <input type="text" id="chat-text" class='form-control' placeholder='start chatting...'> <br>
+                <button type="button" class="w-100 btn btn-lg btn-primary" id="send-msg">Send Message</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let web_socket = new WebSocket('ws://127.0.0.1:8000/ws/') //initializing socket connection
+        web_socket.onopen = function () {
+            alert('Socket Connected Successfully...')
+        }
+        web_socket.onmessage = function (event) {
+            let server_msg = JSON.parse(event.data) //converting server responce in json data
+            document.querySelector('#chat-box').value += (server_msg.msg) + '\n'
+        }
+        web_socket.onclose = function () {
+            alert('Socket Disconnected...')
+        }
+
+        document.getElementById('send-msg').onclick = function () {
+            let message = document.getElementById('chat-text')
+            web_socket.send(JSON.stringify({ //sending client msg to server by converting that message in json
+                'msg': message.value
+            }))
+            message.value = ''
+        }
+    </script>
+</body>
+
+</html>
