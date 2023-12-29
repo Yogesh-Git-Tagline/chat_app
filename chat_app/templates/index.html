@@ -1,0 +1,97 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    {% load bootstrap5 %}
+    {% bootstrap_css %}
+    {% bootstrap_javascript %}
+
+</head>
+
+<body class='alert-danger'>
+    <div class="container">
+        <h2 class='alert alert-info text-center mt-1'>CHAT APPLIACTION</h2>
+        <div class="col-sm-10">
+            <div class="rounded p-4 offset-2 alert-success border border-2 border-dark">
+                <div id="chat-box">
+
+                </div>
+                <br>
+                <input type="text" id="chat-text" class='form-control' placeholder='start chatting...'> <br>
+                <label><strong>Send file:</strong></label>
+                <input type="file" id="imageInput" accept="image/*" class='form-control'> <br>
+                <button type="button" class="w-100 btn btn-lg btn-primary" id="send-msg">Send Message</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let web_socket = new WebSocket('ws://127.0.0.1:8000/ws/') //initializing socket connection
+        web_socket.onopen = function () {
+            alert('Socket Connected Successfully...')
+        }
+        web_socket.onmessage = function (event) {
+            let server_msg = JSON.parse(event.data) //converting server responce in json data
+
+            if (server_msg['type'] === 'image') {
+                const img = new Image();
+                img.src = "http://127.0.0.1:8000/static/myimage/" + server_msg['image_name'];
+                document.getElementById("chat-box").appendChild(img);
+            } else {
+                const node = document.createElement("p");
+                const textnode = document.createTextNode(server_msg);
+                console.log(server_msg)
+                node.appendChild(textnode);
+                document.getElementById("chat-box").appendChild(node);
+            }
+
+        }
+
+        web_socket.onclose = function () {
+            alert('Socket Disconnected...')
+        }
+
+        document.getElementById('send-msg').onclick = function () {
+            let message = document.getElementById('chat-text')
+
+
+            web_socket.send(JSON.stringify({ //sending client msg to server by converting that message in json
+                'msg': message.value
+            }))
+            message.value = ''
+        }
+
+        //handling file 
+        // JavaScript to handle file selection and send to the server
+
+
+        document.getElementById('imageInput').addEventListener('change', (event) => {
+            const imageInput = event.target;
+            const imageFile = imageInput.files[0];
+
+            // Read the image as a base64-encoded string
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const imageContent = reader.result.split(',')[1]; // Extract the base64-encoded content
+                const imageName = imageFile.name;
+
+                // Send the image data to the server
+                web_socket.send(JSON.stringify({
+                    type: 'image',
+                    image_name: imageName,
+                    image_content: imageContent,
+                }));
+            };
+
+            reader.readAsDataURL(imageFile);
+        });
+    </script>
+
+
+</body>
+
+</html>
