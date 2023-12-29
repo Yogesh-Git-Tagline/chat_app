@@ -1,45 +1,55 @@
-from channels.consumer import AsyncConsumer
-from channels.exceptions import StopConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer
+import json
+import base64
 
 
-class MyConsumer(AsyncConsumer):
-    async def websocket_connect(self, event):
-        print('--WEBSOCKET CONNECTED--')
+class MyConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        print('Websocket Connected')
+        await self.accept()
 
-        """it is adding clients in 'chatting' group"""
-        await self.channel_layer.group_add(
-            'chatting',  # this is a group name
-            self.channel_name
-        )
-        await self.send({
-            'type': 'websocket.accept'  # server is ready to accept data from client
-        })
+    async def disconnect(self, code):
+        print('Disconnected')
 
-    async def websocket_receive(self, event):
-        print('--MSG FROM CLINET:-', event['text'])
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        text = data.get('msg')
+        image_content = data.get('image_content')
 
-        """it is sends a message to a group named 'chatting' using the channel layer."""
+        if image_content:
+            image_path = '/Users/mac/Desktop/Blog_API/chat_project/chat_app/static/myimage/' + \
+                data.get('image_name')
+
+            binary_image_content = base64.b64decode(image_content)
+
+            with open(image_path, 'wb') as image_file:
+                image_file.write(binary_image_content)
+
+            await self.channel_layer.group_add("image_group", self.channel_name)
+            await self.channel_layer.group_send(
+                "image_group",
+                {
+                    "type": "send.image",
+                    "image_path": image_path,
+                    "image_name": data.get('image_name'),
+                },
+            )
+        await self.channel_layer.group_add("image_group", self.channel_name)
         await self.channel_layer.group_send(
-            'chatting',
+            'image_group',
             {
-                # its indicating content of msg which is chat
                 'type': 'chat.message',
-                # it sets the actual clinet msg in 'message' key
-                'message': event['text']
+                'message': text
             }
         )
-    """this function is for sending back client responce to client side for printing it on chat box"""
-    async def chat_message(self, event):
-        await self.send({
-            'type': 'websocket.send',
-            'text': event['message']
-        })
 
-    """this method removes the group name from channel to disconnect client server connection"""
-    async def websocket_disconnect(self, event):
-        print('--WEBSOCKET DISCONNECTED--')
-        await self.channel_layer.group_discard(
-            'chatting',
-            self.channel_name
-        )
-        raise StopConsumer  # it just disconnect connetion of client server
+    async def chat_message(self, event):
+        await self.send(text_data=json.dumps(event['message']
+                                             ))
+
+    async def send_image(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'image',
+            'image_path': event['image_path'],
+            'image_name': event['image_name'],
+        }))
